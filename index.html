@@ -1,0 +1,183 @@
+<!-- YES IM RETARDED AND I HAVE EVERYTHING IN A SINGLE FILE TY -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Fit stealer</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      button {
+        height: 30px;
+      }
+      .heading {
+        width: 800px;
+        font-size: 12px;
+        margin: 2px auto;
+      }
+      #shipsNumber {
+        width: 315px;
+        margin: 3px auto;
+      }
+      #buttons {
+        width: 230px;
+        margin: 3px auto;
+      }
+      #paste {
+        width: 340px;
+        margin: 5px auto;
+      }
+      #pastedFit  {
+        width: 340px;
+      }
+      .clickableContainer {
+        background-color: rgb(228, 228, 228);
+        margin: 10px auto;
+        padding: 6px;
+        font-size: 10px;
+        width: 400px;
+        -webkit-box-shadow: 3px 3px 6px -3px rgba(0,0,0,0.68);
+        -moz-box-shadow: 3px 3px 6px -3px rgba(0,0,0,0.68);
+        box-shadow: 3px 3px 6px -3px rgba(0,0,0,0.68);
+      }
+      .clickableContainer p{
+        margin: 1px;
+      }
+      .clickableContainer:hover {
+        cursor: pointer;
+        background-color: rgb(206, 206, 206);
+      }
+      #footer {
+        font-size: 12px;
+        color:  rgb(190, 190, 190);
+        width: 340px;
+        margin: 10px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <p class="heading">Paste T3 fit (or any other vessel class fit), press button and get your /giveitem commands list. Then just click on container with /giveitems (or fit name) to copy that commands list to clipboard. All fit items are divided into several containers because game chats support only ~1000symbols, so you can't spawn everything at once.</p>
+      <div id="shipsNumber">
+          <span style="font-size: 12px">Number of ships needed: </span>
+          <input type="number" id="numberOfShips" value="4" />
+      </div>
+      <div id="buttons">
+        <button onclick="generatorHandler(event)">Generate /giveitem things</button>
+        <button onclick="window.location.reload()">Reset</button>
+      </div>
+      <div id="paste">
+        <textarea id="pastedFit" rows="3" cols="40" placeholder="Paste pyfa fit here" onfocus="this.value=''"></textarea>
+      </div>
+
+      <div id="logTarget"></div>
+      <div id="footer"><script>document.write(new Date().getFullYear())</script> &copy; All copyrights belong to the owner of DSoldat's mom</div>
+  </div>
+        
+    <script>
+      const eveChatMaxSymbols = 1000;
+      const giveItemsCont = document.getElementById('logTarget');
+      let fitName = '';
+      let giveItemListDivided = [];
+
+      let generatorHandler = (event) => {
+        let giveItemCommandList = [];
+        let numberOfShips = document.getElementById('numberOfShips').value;
+        let pastedFit = document.getElementById('pastedFit').value;
+        pastedFit = pastedFit.split('\n');
+        pastedFit = pastedFit.filter(Boolean);
+  
+        // Get ship hull name and set fit name
+        let firstLine = pastedFit[0].split(',');
+        pastedFit[0] = firstLine[0].slice(1);
+        fitName = firstLine[1].slice(1).slice(0, -1);
+        
+        // Display fit name container and initialize div and p  
+        let clickableCont = document.createElement('div');
+        clickableCont.setAttribute('class', 'clickableContainer');
+        clickableCont.setAttribute('id', 'fitName');
+        clickableCont.setAttribute('onclick', 'copyFitNameHandler()');
+        giveItemsCont.appendChild(clickableCont);
+        let newGiveCommand = document.createElement('p');
+        newGiveCommand.innerHTML = fitName;
+        clickableCont.appendChild(newGiveCommand);
+
+        pastedFit.forEach(item => {
+          let numberOfItemsNeeded = numberOfShips;
+          let splittedName = item.split(' '); 
+          let lastElement = splittedName[splittedName.length - 1];
+          let secondSymbol = parseInt(lastElement.charAt(1)); 
+          
+          // To define final quantity of charges in cargo - check if first symbol is "x" and second is a number
+          if (lastElement.charAt(0) === "x" && secondSymbol !== NaN) { 
+            numberOfItemsNeeded = numberOfItemsNeeded * (lastElement.slice(1, lastElement.length));
+            let itemWithoutQuantity = [];
+            for (let i = 0; i < (splittedName.length - 1); i++) {
+              itemWithoutQuantity.push(splittedName[i]);
+            }
+            giveItemCommandList.push(`/giveitem "${itemWithoutQuantity.join(' ')}" ${numberOfItemsNeeded}`);
+          } else {
+            // Remove /OFFLINE flag if it is present
+            if (lastElement === "/OFFLINE") {
+              let noOffline = [];
+              for (let i = 0; i < (splittedName.length - 1); i++) {
+                noOffline.push(splittedName[i]);
+              }
+              giveItemCommandList.push(`/giveitem "${noOffline.join(' ')}" ${numberOfItemsNeeded}`);
+            } else if (item !== "[Empty High slot]") { // Ignore [Empty High slot] 
+              giveItemCommandList.push(`/giveitem "${item}" ${numberOfItemsNeeded}`);
+            }            
+          }          
+        });
+
+        let strAcc = '';
+        for (i = 0; i < giveItemCommandList.length; i++) {
+          let currentItem = giveItemCommandList[i];
+          if ((currentItem.length + strAcc.length) > eveChatMaxSymbols) {
+            giveItemListDivided.push(strAcc);
+            strAcc = ''; 
+          }
+          strAcc = `${strAcc}${currentItem}\t`;          
+        }
+        if (strAcc.length > 0) {
+          giveItemListDivided.push(strAcc);
+        }
+        
+        for (let listsInd = 0; listsInd < giveItemListDivided.length; listsInd++) {      
+          clickableCont = document.createElement('div');
+          clickableCont.setAttribute('class', 'clickableContainer'); 
+          clickableCont.setAttribute('id', listsInd);  
+          clickableCont.setAttribute('onclick', 'copyGiveItemListHandler(this.id)');
+          giveItemsCont.appendChild(clickableCont);
+          let splittedList = giveItemListDivided[listsInd].split('\t');
+          splittedList.forEach(i => {
+            newGiveCommand = document.createElement('p');
+            newGiveCommand.innerHTML = i;
+            clickableCont.appendChild(newGiveCommand);
+          });
+        };
+      }
+
+      copyFitNameHandler = () => {
+        this.copyToClipboardHandler(fitName);
+      }
+
+      copyGiveItemListHandler = (id) => {
+        this.copyToClipboardHandler(giveItemListDivided[id].split('\t').join('\n'));
+      }
+
+      copyToClipboardHandler = (data) => {
+        const dummy = document.createElement("textarea");
+        document.body.appendChild(dummy);
+        dummy.value = data;
+        dummy.select();
+        document.execCommand("copy");
+        document.body.removeChild(dummy);
+      }
+
+      let timeBadge = new Date().getFullYear();
+    </script>
+  </body>
+
+</html>
